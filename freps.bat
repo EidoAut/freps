@@ -3,99 +3,90 @@ setlocal EnableExtensions EnableDelayedExpansion
 :: ==============================================================================
 :: Project : freps (Find, REPlace, Search)
 :: File    : freps.bat
-:: Version : 1.2.0
+:: Version : 1.3.0
 :: Date    : 2025-10-30
 :: Author  : Samuel Seijo (EIDO AUTOMATION SL)
 :: License : MIT
 :: ==============================================================================
 :: Description:
-::   A lightweight Windows batch utility to:
-::     - Rename files and folders (find & replace in names).   [mode: r]
-::     - Replace text within file contents.                    [mode: p]
-::     - Search text inside files with flexible options.       [mode: s]
+::   A lightweight Windows command-line utility for renaming, replacing,
+::   and searching recursively inside files and folders.
+::
+::   Modes:
+::     r : Rename files/folders (find & replace in names)
+::     p : Replace text within file contents
+::     s : Search text inside files (lines or filenames only)
+::     l : List files by NAME that contain FROM
+::     u : Undo replacements by restoring .bak files (from /B)
+::     d : Delete files by NAME (safe by default, requires /F to apply)
 ::
 ::   Legacy ordered arguments:
 ::     MODE FROM TO DIR [EXT...]
 ::
-::   Optional flags:
-::     /N    Dry-run (show actions, no changes)  — affects r/p
+::   Common flags:
+::     /N    Dry-run (show actions, make no changes)                  [r,p,u]
 ::     /V    Verbose/debug output
-::     /B    Create .bak backup before writing   — affects p
-::     /Q    Quiet mode (suppress info lines)
+::     /Q    Quiet (suppress info lines)
+::     /DBG  Detailed internal debug trace
 ::
-::   Search-specific flags:
-::     /M    List files with matches only (no lines)
+::   Replace-specific:
+::     /B    Create .bak before writing (p)
+::
+::   Search-specific:
+::     /M    Filenames only (no matching lines)
 ::     /CS   Case-sensitive search (default is case-insensitive)
 ::     /RX   Treat FROM as regex (default: literal via /c:"...")
 ::
+::   Delete-specific:
+::     /F    Force deletion (required to actually delete files)       [d]
+::
 :: Notes:
-::   * MODE: r (rename), p (replace), s (search)
-::   * In search mode, the TO parameter is ignored.
+::   * In search mode, TO is ignored.
 ::   * EXT should include the dot, e.g. .txt .cfg .idf
-::   * Content replacement in mode 'p' is case-sensitive (cmd limitation).
-::
-:: ======================== EXAMPLES ==================================
-::   Rename files/folders:
-::     freps r HC54 HC99 "C:\path\to\project"
-::
-::   Replace text inside files:
-::     freps p HC54 HC99 "C:\path\to\project" .idf .ids /B /V
-::
-::   Search text (TO ignored):
-::     freps s HC54 "" "C:\path\to\project" .idf .ids .txt
-::     freps s HC54 "" "C:\path\to\project" .txt /M       (filenames only)
-::     freps s ^\bHC54\b "" "C:\path\to\project" .txt /RX (regex word-boundary)
-::     freps s HC54 "" "C:\path\to\project" .txt /CS      (case-sensitive)
+::   * Replacement in mode p is case-sensitive (cmd variable substitution).
 :: ==============================================================================
 
-REM -----------------------------------------------------
-REM Help
-REM -----------------------------------------------------
+:: --- HELP ---
 if /i "%~1"==""        goto :show_help
 if /i "%~1"=="-h"      goto :show_help
 if /i "%~1"=="--help"  goto :show_help
 if /i "%~1"=="/?"      goto :show_help
 
-REM -----------------------------------------------------
-REM Required ordered params
-REM -----------------------------------------------------
+:: --- ORDERED PARAMS ---
 set "mode=%~1"
 set "from=%~2"
 set "to=%~3"
 set "dir=%~4"
-
 for /f "tokens=1" %%a in ("%mode%") do set "mode=%%a"
 shift & shift & shift & shift
 
-REM -----------------------------------------------------
-REM Parse remaining tokens (extensions + flags)
-REM -----------------------------------------------------
+:: --- FLAGS & EXTENSIONS ---
 set "ext="
 set "FLAG_DRYRUN=0"
 set "FLAG_VERBOSE=0"
 set "FLAG_BACKUP=0"
 set "FLAG_QUIET=0"
-set "FLAG_SEARCH_FILES_ONLY=0"   REM /M
-set "FLAG_SEARCH_CASE_SENS=0"    REM /CS
-set "FLAG_SEARCH_REGEX=0"        REM /RX
+set "FLAG_SEARCH_FILES_ONLY=0"   :: /M
+set "FLAG_SEARCH_CASE_SENS=0"    :: /CS
+set "FLAG_SEARCH_REGEX=0"        :: /RX
+set "FLAG_DEBUG=0"               :: /DBG
+set "FLAG_FORCE=0"               :: /F  (delete)
 
 :readTail
 if "%~1"=="" goto afterTail
 set "tkn=%~1"
 if "!tkn:~0,1!"=="/" (
-    if /i "!tkn!"=="/N"  set "FLAG_DRYRUN=1"
-    if /i "!tkn!"=="/V"  set "FLAG_VERBOSE=1"
-    if /i "!tkn!"=="/B"  set "FLAG_BACKUP=1"
-    if /i "!tkn!"=="/Q"  set "FLAG_QUIET=1"
-    if /i "!tkn!"=="/M"  set "FLAG_SEARCH_FILES_ONLY=1"
-    if /i "!tkn!"=="/CS" set "FLAG_SEARCH_CASE_SENS=1"
-    if /i "!tkn!"=="/RX" set "FLAG_SEARCH_REGEX=1"
+    if /i "!tkn!"=="/N"   set "FLAG_DRYRUN=1"
+    if /i "!tkn!"=="/V"   set "FLAG_VERBOSE=1"
+    if /i "!tkn!"=="/B"   set "FLAG_BACKUP=1"
+    if /i "!tkn!"=="/Q"   set "FLAG_QUIET=1"
+    if /i "!tkn!"=="/M"   set "FLAG_SEARCH_FILES_ONLY=1"
+    if /i "!tkn!"=="/CS"  set "FLAG_SEARCH_CASE_SENS=1"
+    if /i "!tkn!"=="/RX"  set "FLAG_SEARCH_REGEX=1"
+    if /i "!tkn!"=="/DBG" set "FLAG_DEBUG=1"
+    if /i "!tkn!"=="/F"   set "FLAG_FORCE=1"
 ) else (
-    if "!tkn:~0,1!"=="." (
-        set "ext=!ext! !tkn!"
-    ) else (
-        set "ext=!ext! !tkn!"
-    )
+    if "!tkn:~0,1!"=="." ( set "ext=!ext! !tkn!" ) else ( set "ext=!ext! !tkn!" )
 )
 shift
 goto :readTail
@@ -103,53 +94,50 @@ goto :readTail
 :afterTail
 if defined ext set "ext=%ext:~1%"
 
-REM -----------------------------------------------------
-REM Banner / debug
-REM -----------------------------------------------------
+:: --- DEBUG SETUP ---
+if "%FLAG_DEBUG%"=="1" (echo on) else (echo off)
+call :dbg "== START =="
+call :dbg "ARGS: mode=[%mode%] from=[%from%] to=[%to%] dir=[%dir%]"
+call :dbg "EXT=[%ext%] FLAGS: N=%FLAG_DRYRUN% V=%FLAG_VERBOSE% B=%FLAG_BACKUP% Q=%FLAG_QUIET% M=%FLAG_SEARCH_FILES_ONLY% CS=%FLAG_SEARCH_CASE_SENS% RX=%FLAG_SEARCH_REGEX% F=%FLAG_FORCE% DBG=%FLAG_DEBUG%"
+
+:: --- HEADER OUTPUT ---
 if "%FLAG_QUIET%"=="0" (
     echo.
     echo ================================================================
-    echo freps ^| v1.2.0 ^| %DATE% %TIME%
+    echo freps ^| v1.3.0 ^| %DATE% %TIME%
     echo ================================================================
 )
 
-if "%FLAG_VERBOSE%"=="1" (
-    echo [DEBUG] mode=[%mode%] from=[%from%] to=[%to%] dir=[%dir%]
-    echo [DEBUG] ext=[%ext%]
-    echo [DEBUG] flags: DRYRUN=%FLAG_DRYRUN% VERBOSE=%FLAG_VERBOSE% BACKUP=%FLAG_BACKUP% QUIET=%FLAG_QUIET%
-    echo [DEBUG] search: FILES_ONLY=%FLAG_SEARCH_FILES_ONLY% CS=%FLAG_SEARCH_CASE_SENS% RX=%FLAG_SEARCH_REGEX%
-    echo.
-)
-
-REM -----------------------------------------------------
-REM Validation
-REM -----------------------------------------------------
-if "%mode%"==""      call :err "Missing mode: r, p, or s" & goto :eof
-if "%from%"==""      call :err "Missing 'from' value" & goto :eof
+:: --- VALIDATION ---
+if "%mode%"==""      call :err "Missing mode: r, p, s, l, u, or d" & goto :eof
+if /i not "%mode%"=="u" if /i not "%mode%"=="d" if "%from%"=="" call :err "Missing 'from' value" & goto :eof
 if "%dir%"==""       call :err "Missing target directory" & goto :eof
 if not exist "%dir%" call :err "Target directory does not exist: %dir%" & goto :eof
 if /i "%mode%"=="p" if "%to%"=="" call :err "Missing 'to' for replace mode (p)" & goto :eof
 if /i "%mode%"=="r" if "%to%"=="" call :err "Missing 'to' for rename mode (r)"  & goto :eof
 
-REM -----------------------------------------------------
-REM Dispatch
-REM -----------------------------------------------------
+:: --- DISPATCH ---
+call :dbg "Dispatching to mode [%mode%]"
 if /i "%mode%"=="r"  goto :RenameFiles
 if /i "%mode%"=="p"  goto :ReplaceFiles
 if /i "%mode%"=="s"  goto :SearchFiles
-
-call :err "Unknown mode: %mode%"
-goto :eof
-
+if /i "%mode%"=="l"  goto :ListByName
+if /i "%mode%"=="u"  goto :UndoBackups
+if /i "%mode%"=="d"  goto :DeleteByName
+call :err "Unknown mode: %mode%" & goto :eof
 
 :: ==============================================================================
-:: RENAME
+:: MODE R: RENAME FILES AND FOLDERS
 :: ==============================================================================
 :RenameFiles
-if "%FLAG_QUIET%"=="0" echo [INFO] Renaming "%from%" → "%to%" under "%dir%"
+call :dbg "Enter :RenameFiles"
+if "%FLAG_QUIET%"=="0" echo [INFO] Renaming "%from%" ^> "%to%" under "%dir%"
+
+call :dbg "Looping through files..."
 for /r "%dir%" %%f in (*%from%*) do (
     set "filename=%%~nxf"
     set "newname=!filename:%from%=%to%!"
+    call :dbg "Check file: %%f | old=!filename! | new=!newname!"
     if not "!filename!"=="!newname!" (
         if "%FLAG_DRYRUN%"=="1" (
             echo [DRYRUN] REN "%%f" "!newname!"
@@ -161,9 +149,12 @@ for /r "%dir%" %%f in (*%from%*) do (
         echo [DEBUG] Unchanged: %%f
     )
 )
+
+call :dbg "Looping through folders (deepest first)..."
 for /f "delims=" %%d in ('dir /ad /b /s "%dir%" ^| sort /r') do (
     set "foldername=%%~nxd"
     set "newfolder=!foldername:%from%=%to%!"
+    call :dbg "Check folder: %%d | old=!foldername! | new=!newfolder!"
     if not "!foldername!"=="!newfolder!" (
         if "%FLAG_DRYRUN%"=="1" (
             echo [DRYRUN] REN "%%d" "!newfolder!"
@@ -176,35 +167,34 @@ for /f "delims=" %%d in ('dir /ad /b /s "%dir%" ^| sort /r') do (
     )
 )
 if "%FLAG_QUIET%"=="0" echo [DONE] Rename complete.
+call :dbg "Exit :RenameFiles"
 goto :eof
 
-
 :: ==============================================================================
-:: REPLACE (content)
+:: MODE P: REPLACE TEXT INSIDE FILES
 :: ==============================================================================
 :ReplaceFiles
-if "%ext%"=="" (
-    call :err "Missing file extensions for replace (e.g. .txt .cfg)"
-    goto :eof
-)
+call :dbg "Enter :ReplaceFiles"
+if "%ext%"=="" ( call :err "Missing file extensions for replace (e.g. .txt .cfg)" & goto :eof )
+
 if "%FLAG_QUIET%"=="0" (
-    echo [INFO] Replacing "%from%" → "%to%" in "%dir%" for: %ext%
+    echo [INFO] Replacing "%from%" ^> "%to%" in "%dir%" for: %ext%
     if "%FLAG_DRYRUN%"=="1" echo [INFO] DRY-RUN: no changes will be made.
     if "%FLAG_BACKUP%"=="1" echo [INFO] Backups enabled (.bak).
 )
+
 for %%x in (%ext%) do (
-    if "%FLAG_VERBOSE%"=="1" echo [DEBUG] Ext: %%x
+    call :dbg "Extension: %%x"
     for /r "%dir%" %%f in (*%%x) do call :ReplaceInFile "%%~ff"
 )
 if "%FLAG_QUIET%"=="0" echo [DONE] Content replacement complete.
+call :dbg "Exit :ReplaceFiles"
 goto :eof
 
 :ReplaceInFile
+call :dbg "Enter :ReplaceInFile %~1"
 set "filepath=%~1"
-if not exist "%filepath%" (
-    if "%FLAG_VERBOSE%"=="1" echo [DEBUG] Skipping non-existing: %filepath%
-    goto :eof
-)
+if not exist "%filepath%" ( call :dbg "Skip non-existing: %filepath%" & goto :eof )
 set "tempfile=%filepath%.tmp"
 break > "%tempfile%"
 for /f "usebackq delims=" %%L in ("%filepath%") do (
@@ -236,48 +226,41 @@ if errorlevel 1 (
     del /q "%tempfile%" >nul 2>&1
     if "%FLAG_VERBOSE%"=="1" echo [DEBUG] No changes: %filepath%
 )
+call :dbg "Exit :ReplaceInFile %~1"
 goto :eof
 
-
 :: ==============================================================================
-:: SEARCH
+:: MODE S: SEARCH IN FILES
 :: ==============================================================================
 :SearchFiles
+call :dbg "Enter :SearchFiles"
 set /a files_scanned=0
 set /a matches_total=0
 
-REM Build findstr options:
-REM - default: /n (line numbers) + /i (case-insensitive) + /c:"literal"
-set "FINDSTR_OPTS=/n /i"
-set "FINDSTR_PATTERN=/c:""%from%"""
-if "%FLAG_SEARCH_CASE_SENS%"=="1" (
-    REM remove /i
-    set "FINDSTR_OPTS=/n"
+set "OPTS_LINES=/n"
+set "OPTS_FILES=/m"
+if "%FLAG_SEARCH_CASE_SENS%"=="0" (
+    set "OPTS_LINES=%OPTS_LINES% /i"
+    set "OPTS_FILES=%OPTS_FILES% /i"
 )
-if "%FLAG_SEARCH_REGEX%"=="1" (
-    REM regex mode: drop /c:"", use raw pattern
-    set "FINDSTR_PATTERN=%from%"
+if "%FLAG_SEARCH_REGEX%"=="1" ( set "PATTERN=%from%" ) else ( set "PATTERN=/c:""%from%""" )
+
+call :dbg "Search opts: LINES=[%OPTS_LINES%] FILES=[%OPTS_FILES%] PATTERN=[%PATTERN%]"
+
+if "%FLAG_QUIET%"=="0" (
+    set "MSG_MODE="
+    if "%FLAG_SEARCH_FILES_ONLY%"=="1" set "MSG_MODE=files only "
+    set "MSG_SCOPE=in ALL files"
+    if defined ext set "MSG_SCOPE=in extensions: %ext%"
+    echo [INFO] Searching "%from%" !MSG_MODE!!MSG_SCOPE! under "%dir%"
 )
 
 if "%ext%"=="" (
-    if "%FLAG_QUIET%"=="0" (
-        if "%FLAG_SEARCH_FILES_ONLY%"=="1" (
-            echo [INFO] Searching "%from%" (files only) in ALL files under "%dir%"
-        ) else (
-            echo [INFO] Searching "%from%" in ALL files under "%dir%"
-        )
-    )
+    call :dbg "Search all files recursively"
     for /r "%dir%" %%f in (*) do call :SearchInFile "%%~ff"
 ) else (
-    if "%FLAG_QUIET%"=="0" (
-        if "%FLAG_SEARCH_FILES_ONLY%"=="1" (
-            echo [INFO] Searching "%from%" (files only) in extensions: %ext% under "%dir%"
-        ) else (
-            echo [INFO] Searching "%from%" in extensions: %ext% under "%dir%"
-        )
-    )
     for %%x in (%ext%) do (
-        if "%FLAG_VERBOSE%"=="1" echo [DEBUG] Ext: %%x
+        call :dbg "Search ext loop: %%x"
         for /r "%dir%" %%f in (*%%x) do call :SearchInFile "%%~ff"
     )
 )
@@ -287,24 +270,25 @@ if "%FLAG_QUIET%"=="0" (
     echo [SUMMARY] Files scanned : !files_scanned!
     echo [SUMMARY] Matches found : !matches_total!
 )
+call :dbg "Exit :SearchFiles"
 goto :eof
 
 :SearchInFile
 set "filepath=%~1"
 set /a files_scanned+=1
+call :dbg "Enter :SearchInFile file=[%filepath%]"
 
 if "%FLAG_SEARCH_FILES_ONLY%"=="1" (
-    REM /m lists filenames with matches only; do not combine with /n
-    for /f "usebackq delims=" %%M in (`
-        cmd /v:on /c ^"findstr /m %FINDSTR_OPTS: /n=% %FINDSTR_PATTERN% "%filepath%" 2^>nul^"
-    `) do (
+    call :dbg "RUN: findstr %OPTS_FILES% %PATTERN% "%filepath%""
+    for /f "delims=" %%M in ('findstr %OPTS_FILES% %PATTERN% "%filepath%" 2^>nul') do (
         echo %%~fM
         set /a matches_total+=1
+        call :dbg "Match filename only -> %%~fM"
+        goto :eof
     )
 ) else (
-    for /f "usebackq delims=" %%M in (`
-        cmd /v:on /c ^"findstr %FINDSTR_OPTS% %FINDSTR_PATTERN% "%filepath%" 2^>nul^"
-    `) do (
+    call :dbg "RUN: findstr %OPTS_LINES% %PATTERN% "%filepath%""
+    for /f "delims=" %%M in ('findstr %OPTS_LINES% %PATTERN% "%filepath%" 2^>nul') do (
         set "line=%%M"
         set /a matches_total+=1
         if "%FLAG_QUIET%"=="1" (
@@ -312,13 +296,158 @@ if "%FLAG_SEARCH_FILES_ONLY%"=="1" (
         ) else (
             echo [HIT] !filepath!:!line!
         )
+        if "%FLAG_DEBUG%"=="1" echo [DBG] LINE: !line!
     )
 )
+call :dbg "Exit :SearchInFile file=[%filepath%]"
 goto :eof
 
+:: ==============================================================================
+:: MODE L: LIST FILES BY NAME MATCH
+:: ==============================================================================
+:ListByName
+call :dbg "Enter :ListByName"
+set /a list_count=0
+
+if "%FLAG_QUIET%"=="0" (
+    if "%ext%"=="" (
+        echo [INFO] Listing files containing "%from%" under "%dir%"
+    ) else (
+        echo [INFO] Listing files containing "%from%" with EXT: %ext% under "%dir%"
+    )
+)
+
+if "%ext%"=="" (
+    for /r "%dir%" %%f in (*) do (
+        set "name=%%~nxf"
+        setlocal enabledelayedexpansion
+        set "match=!name!"
+        if /i not "!match:%from%=!"=="!match!" (
+            endlocal & echo %%~ff & set /a list_count+=1
+        ) else (
+            endlocal
+        )
+    )
+) else (
+    for %%x in (%ext%) do (
+        for /r "%dir%" %%f in (*%%x) do (
+            set "name=%%~nxf"
+            setlocal enabledelayedexpansion
+            set "match=!name!"
+            if /i not "!match:%from%=!"=="!match!" (
+                endlocal & echo %%~ff & set /a list_count+=1
+            ) else (
+                endlocal
+            )
+        )
+    )
+)
+
+if "%FLAG_QUIET%"=="0" (
+    echo.
+    echo [SUMMARY] Listed files : !list_count!
+)
+call :dbg "Exit :ListByName"
+goto :eof
 
 :: ==============================================================================
-:: Message helpers
+:: MODE U: UNDO FROM .BAK
+:: ==============================================================================
+:UndoBackups
+call :dbg "Enter :UndoBackups"
+set /a restored=0
+if "%FLAG_QUIET%"=="0" (
+    if "%FLAG_DRYRUN%"=="1" (echo [INFO] DRY-RUN undo mode.) else (echo [INFO] Restoring from .bak backups.)
+)
+
+for /r "%dir%" %%f in (*.bak) do (
+    set "bak=%%~ff"
+    set "orig=%%~dpnxf"
+    setlocal enabledelayedexpansion
+    :: remove trailing .bak safely
+    set "orig=!orig:~0,-4!"
+    if "%FLAG_DRYRUN%"=="1" (
+        endlocal & echo [DRYRUN] MOVE "!bak!" "!orig!" & set /a restored+=1
+    ) else (
+        endlocal & move /y "%%~ff" "!orig!" >nul
+        if errorlevel 1 (
+            call :warn "Failed to restore: %%~ff"
+        ) else (
+            if "%FLAG_VERBOSE%"=="1" echo [OK] Restored: !orig!
+            set /a restored+=1
+        )
+    )
+)
+
+if "%FLAG_QUIET%"=="0" (
+    echo.
+    echo [SUMMARY] Restored files : !restored!
+)
+call :dbg "Exit :UndoBackups"
+goto :eof
+
+:: ==============================================================================
+:: MODE D: DELETE FILES BY NAME (SAFE BY DEFAULT)
+:: ==============================================================================
+:DeleteByName
+call :dbg "Enter :DeleteByName"
+set /a del_count=0
+if "%FLAG_QUIET%"=="0" (
+    if "%FLAG_FORCE%"=="1" (echo [INFO] DELETE mode FORCE.) else (echo [INFO] DELETE mode dry-run. Use /F to apply.)
+)
+
+if "%ext%"=="" (
+    for /r "%dir%" %%f in (*) do (
+        set "name=%%~nxf"
+        setlocal enabledelayedexpansion
+        set "match=!name!"
+        if /i not "!match:%from%=!"=="!match!" (
+            if "%FLAG_FORCE%"=="1" (
+                endlocal & del /q "%%~ff" 2>nul
+                if errorlevel 1 (call :warn "Failed to delete: %%~ff") else (
+                    if "%FLAG_VERBOSE%"=="1" echo [DEL] %%~ff
+                    set /a del_count+=1
+                )
+            ) else (
+                endlocal & echo [DRYRUN] DEL "%%~ff" & set /a del_count+=1
+            )
+        ) else (
+            endlocal
+        )
+    )
+) else (
+    for %%x in (%ext%) do (
+        for /r "%dir%" %%f in (*%%x) do (
+            set "name=%%~nxf"
+            setlocal enabledelayedexpansion
+            set "match=!name!"
+            if /i not "!match:%from%=!"=="!match!" (
+                if "%FLAG_FORCE%"=="1" (
+                    endlocal & del /q "%%~ff" 2>nul
+                    if errorlevel 1 (call :warn "Failed to delete: %%~ff") else (
+                        if "%FLAG_VERBOSE%"=="1" echo [DEL] %%~ff
+                        set /a del_count+=1
+                    )
+                ) else (
+                    endlocal & echo [DRYRUN] DEL "%%~ff" & set /a del_count+=1
+                )
+            ) else (
+                endlocal
+            )
+        )
+    )
+)
+
+if "%FLAG_QUIET%"=="0" (
+    echo.
+    echo [SUMMARY] Files matched : !del_count!
+    if "%FLAG_FORCE%"=="0" echo [HINT] Use /F to actually delete matched files.
+)
+call :dbg "Exit :DeleteByName"
+goto :eof
+
+:: ==============================================================================
+:: MESSAGE HELPERS
 :: ==============================================================================
 :err
 >&2 echo [ERROR] %~1
@@ -328,38 +457,51 @@ goto :eof
 >&2 echo [WARN] %~1
 goto :eof
 
+:dbg
+if "%FLAG_DEBUG%"=="1" echo [DBG] %~1
+goto :eof
 
 :: ==============================================================================
-:: HELP
+:: HELP / USAGE
 :: ==============================================================================
 :show_help
 echo.
-echo freps  v1.2.0  ^(MIT^)  ^|  2025-10-30
+echo freps  v1.3.0  ^(MIT^)  ^|  %DATE%
 echo --------------------------------------
 echo Usage:
-echo   freps MODE FROM TO DIR [EXT...] [/N] [/V] [/B] [/Q] [/M] [/CS] [/RX]
+echo   freps MODE FROM TO DIR [EXT...] [/N] [/V] [/B] [/Q] [/M] [/CS] [/RX] [/F] [/DBG]
 echo.
-echo MODE: r ^(rename^) ^| p ^(replace^) ^| s ^(search^)
-echo FROM: text to find
-echo TO  : replacement text ^(ignored in s^)
-echo DIR : base directory
-echo EXT : extensions like .txt .cfg .idf
+echo MODE:
+echo   r  Rename files/folders (find and replace in names)
+echo   p  Replace text within file contents
+echo   s  Search text inside files
+echo   l  List files by NAME that contain FROM
+echo   u  Undo: restore .bak files to original
+echo   d  Delete files by NAME (requires /F to apply)
+echo.
+echo ARGS:
+echo   FROM  text to find   (ignored in s only for TO, and in u)
+echo   TO    replacement    (ignored in s, l, u, d)
+echo   DIR   base directory (searched recursively)
+echo   EXT   optional extensions like .txt .cfg .idf
 echo.
 echo Flags:
-echo   /N   Dry-run ^(show actions, do not modify^)  [r,p]
-echo   /V   Verbose / debug
-echo   /B   Create .bak backups before write         [p]
+echo   /N   Dry-run (show actions, do not modify)              [r,p,u]
+echo   /V   Verbose/debug output
+echo   /B   Create .bak backups before write                   [p]
 echo   /Q   Quiet mode
-echo   /M   Search: list matching filenames only
-echo   /CS  Search: case-sensitive
-echo   /RX  Search: treat FROM as regex
+echo   /M   Search: list matching filenames only               [s]
+echo   /CS  Search: case-sensitive                             [s]
+echo   /RX  Search: treat FROM as regex                        [s]
+echo   /F   Force deletion (required to actually delete)       [d]
+echo   /DBG Print detailed debug trace
 echo.
 echo Examples:
-echo   freps r HC54 HC99 "C:\project"
-echo   freps p HC54 HC99 "C:\project" .idf .ids /B /V
-echo   freps s HC54 "" "C:\project" .txt .cfg
-echo   freps s HC54 "" "C:\project" .txt /M
-echo   freps s ^\bHC54\b "" "C:\project" .txt /RX
-echo   freps s HC54 "" "C:\project" .txt /CS
+echo   freps r old new "C:\project"
+echo   freps p token TOKEN "C:\project" .cfg .txt /B /V
+echo   freps s ERROR "" "C:\logs" .log /M
+echo   freps l draft "" "C:\project"
+echo   freps u "" "" "C:\project" /N
+echo   freps d temp "" "C:\project" .tmp .bak /F
 echo.
 exit /b 0
