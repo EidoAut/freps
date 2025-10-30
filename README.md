@@ -1,63 +1,134 @@
 # freps (Find, REPlace, Search)
 
-**freps** is a small, dependency-free **Windows batch tool** for:
-- 🔄 Find & replace in **file/folder names** (`mode: r`)
-- 📝 Find & replace in **file contents** (`mode: p`)
-- 🔍 **Search** text across files with flexible options (`mode: s`)
+**freps** is a small, dependency-free **Windows batch tool** to work recursively with files and folders:
 
-- Works with legacy ordered arguments.
-- Adds useful flags: `/N` (dry-run), `/V` (verbose), `/B` (backup), `/Q` (quiet).
-- Search-specific: `/M` (filenames only), `/CS` (case-sensitive), `/RX` (regex).
+- 🔄 **Rename**: find & replace in file/folder names (`mode: r`)
+- 📝 **Replace**: find & replace inside file contents (`mode: p`)
+- 🔍 **Search**: find text across files (lines or filenames only) (`mode: s`)
+- 📄 **List**: show files whose **name** contains a string (`mode: l`)
+- ↩️ **Undo**: restore `.bak` backups created during replace (`mode: u`)
+- 🗑️ **Delete**: remove files by **name** (safe by default; requires `/F`) (`mode: d`)
+
+MIT licensed. Single `bat` file. No external tools.
+
+---
 
 ## Installation
 
-Copy `freps.bat` to a folder in your `PATH` (e.g., `C:\Windows\System32`) so you can call it directly from `cmd`.
+Copy `freps.bat` to a folder in your `PATH` (e.g., `C:\Windows\System32`) so you can call it directly from **cmd**:
 
 ```cmd
 freps /?
 ```
 
+---
+
 ## Usage
 
 ```bat
-freps MODE FROM TO DIR [EXT...] [/N] [/V] [/B] [/Q] [/M] [/CS] [/RX]
+freps MODE FROM TO DIR [EXT...] [/N] [/V] [/B] [/Q] [/M] [/CS] [/RX] [/F] [/DBG]
 ```
 
-| Argument | Description |
-|---------:|-------------|
-| `MODE` | `r` (rename), `p` (replace), `s` (search) |
-| `FROM` | Text to search for |
-| `TO` | Replacement text (ignored in `s`) |
-| `DIR` | Base directory (searched recursively) |
-| `EXT` | Extensions with dot, e.g. `.txt .cfg .idf` |
+### Modes
 
-### Examples
+| Mode | Description |
+|------|-------------|
+| `r` | Rename files/folders (find & replace in names) |
+| `p` | Replace text inside file contents |
+| `s` | Search text inside files (print matching lines by default) |
+| `l` | List files whose **name** contains `FROM` |
+| `u` | Undo: restore `.bak` files (from `/B` in replace) |
+| `d` | Delete files by **name** (requires `/F` to actually delete) |
+
+### Arguments
+
+| Arg | Meaning |
+|---:|---|
+| `FROM` | Text to search for (ignored only in `u`) |
+| `TO` | Replacement text (ignored in `s`, `l`, `u`, `d`) |
+| `DIR` | Base directory (searched recursively) |
+| `EXT` | Optional extensions with dot, e.g. `.txt .cfg .idf` |
+
+### Flags
+
+| Flag | Scope | Description |
+|-----:|------|-------------|
+| `/N` | r, p, u | Dry-run: show actions, do not modify |
+| `/V` | all | Verbose/debug output |
+| `/B` | p | Create `.bak` backup before writing |
+| `/Q` | all | Quiet mode (suppress info lines) |
+| `/M` | s | Filenames only (no lines) |
+| `/CS` | s | Case-sensitive search |
+| `/RX` | s | Treat `FROM` as regex (native `findstr`) |
+| `/F` | d | **Force** deletion (required to actually delete) |
+| `/DBG` | all | Print internal debug trace (`echo on` + tagged steps) |
+
+---
+
+## Examples
 
 ```bat
-:: Rename files and folders
-freps r HC54 HC99 "C:\path\to\project"
+:: Rename files and folders (names)
+freps r draft final "C:\work\repo"
 
-:: Replace text (with backups and verbose output)
-freps p HC54 HC99 "C:\path\to\project" .idf .ids /B /V
+:: Replace text in files (with backups and verbose)
+freps p dev prod "C:\work\repo" .env .cfg /B /V
 
 :: Search text (case-insensitive by default)
-freps s HC54 "" "C:\path\to\project" .idf .ids .txt
+freps s token "" "C:\logs" .log .txt
 
-:: Search: list only filenames that contain matches
-freps s HC54 "" "C:\path\to\project" .txt /M
+:: Search: list only filenames with matches
+freps s ERROR "" "C:\logs" .log /M
 
 :: Search: regex (word boundary), note escaping for cmd
-freps s ^\bHC54\b "" "C:\path\to\project" .txt /RX
+freps s ^\bTODO\b "" "C:\work" .txt /RX
 
 :: Search: case-sensitive
-freps s HC54 "" "C:\path\to\project" .txt /CS
+freps s Token "" "C:\work" .cfg /CS
+
+:: List files by NAME containing “report”
+freps l report "" "C:\work\reports" .pdf .docx
+
+:: Undo: restore from .bak (simulate first)
+freps u "" "" "C:\work\repo" /N
+freps u "" "" "C:\work\repo"
+
+:: Delete files by NAME (simulate, then apply)
+freps d temp "" "C:\work\repo" .tmp .bak
+freps d temp "" "C:\work\repo" .tmp .bak /F
 ```
+
+---
 
 ## Notes & Limitations
 
-- Content replacement (`mode: p`) is **case-sensitive** due to `cmd.exe` substitution behavior.
-- Operates line-by-line; intended for **text** files.
-- Rename runs files first, then folders from deepest to shallowest.
+- **Replace (`p`) is case-sensitive** due to `cmd.exe` variable substitution.  
+  For true case-insensitive or regex replace, consider a PowerShell variant.
+- Operates **line-by-line**; intended for **text** files.
+- **Rename** processes files first, then folders deepest-first.
+- **Delete (`d`)** requires `/F` to actually remove files. If both `/N` and `/F` are present, dry-run wins.
+- `.bak` files from replace are simple file copies of the pre-modified content.
+
+---
+
+## Repo structure
+
+```
+freps/
+├─ freps.bat
+├─ README.md
+├─ LICENSE
+└─ .gitignore
+```
+
+`.gitignore`:
+
+```gitignore
+*.bak
+*.tmp
+```
+
+---
 
 ## License
 
