@@ -3,7 +3,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 :: ==============================================================================
 :: Project : freps (Find, REPlace, Search)
 :: File    : freps.bat
-:: Version : 1.3.0
+:: Version : 1.3.3
 :: Date    : 2025-10-30
 :: Author  : Samuel Seijo (EIDO AUTOMATION SL)
 :: License : MIT
@@ -23,27 +23,10 @@ setlocal EnableExtensions EnableDelayedExpansion
 ::   Legacy ordered arguments:
 ::     MODE FROM TO DIR [EXT...]
 ::
-::   Common flags:
-::     /N    Dry-run (show actions, make no changes)                  [r,p,u]
-::     /V    Verbose/debug output
-::     /Q    Quiet (suppress info lines)
-::     /DBG  Detailed internal debug trace
-::
-::   Replace-specific:
-::     /B    Create .bak before writing (p)
-::
-::   Search-specific:
-::     /M    Filenames only (no matching lines)
-::     /CS   Case-sensitive search (default is case-insensitive)
-::     /RX   Treat FROM as regex (default: literal via /c:"...")
-::
-::   Delete-specific:
-::     /F    Force deletion (required to actually delete files)       [d]
-::
-:: Notes:
-::   * In search mode, TO is ignored.
-::   * EXT should include the dot, e.g. .txt .cfg .idf
-::   * Replacement in mode p is case-sensitive (cmd variable substitution).
+::   Common flags: /N /V /Q /DBG
+::   Replace: /B
+::   Search : /M /CS /RX
+::   Delete : /F
 :: ==============================================================================
 
 :: --- HELP ---
@@ -70,7 +53,7 @@ set "FLAG_SEARCH_FILES_ONLY=0"   :: /M
 set "FLAG_SEARCH_CASE_SENS=0"    :: /CS
 set "FLAG_SEARCH_REGEX=0"        :: /RX
 set "FLAG_DEBUG=0"               :: /DBG
-set "FLAG_FORCE=0"               :: /F  (delete)
+set "FLAG_FORCE=0"               :: /F
 
 :readTail
 if "%~1"=="" goto afterTail
@@ -104,7 +87,7 @@ call :dbg "EXT=[%ext%] FLAGS: N=%FLAG_DRYRUN% V=%FLAG_VERBOSE% B=%FLAG_BACKUP% Q
 if "%FLAG_QUIET%"=="0" (
     echo.
     echo ================================================================
-    echo freps ^| v1.3.0 ^| %DATE% %TIME%
+    echo freps ^| v1.3.3 ^| %DATE% %TIME%
     echo ================================================================
 )
 
@@ -171,22 +154,31 @@ call :dbg "Exit :RenameFiles"
 goto :eof
 
 :: ==============================================================================
-:: MODE P: REPLACE TEXT INSIDE FILES
+:: MODE P: REPLACE TEXT INSIDE FILES  (no-paren validation)
 :: ==============================================================================
 :ReplaceFiles
 call :dbg "Enter :ReplaceFiles"
-if "%ext%"=="" ( call :err "Missing file extensions for replace (e.g. .txt .cfg)" & goto :eof )
 
+:: avoid parentheses here to be safe with /DBG echo-on
+if defined ext goto :ReplaceFiles_go
+call :err "Missing file extensions for replace (e.g. .txt .cfg)"
+goto :eof
+
+:ReplaceFiles_go
 if "%FLAG_QUIET%"=="0" (
     echo [INFO] Replacing "%from%" ^> "%to%" in "%dir%" for: %ext%
     if "%FLAG_DRYRUN%"=="1" echo [INFO] DRY-RUN: no changes will be made.
     if "%FLAG_BACKUP%"=="1" echo [INFO] Backups enabled (.bak).
 )
 
+:: Robust loop over extensions; quote pattern as "*%%x"
 for %%x in (%ext%) do (
-    call :dbg "Extension: %%x"
-    for /r "%dir%" %%f in (*%%x) do call :ReplaceInFile "%%~ff"
+    call :dbg "Extension loop: %%x"
+    for /r "%dir%" %%f in ("*%%x") do (
+        call :ReplaceInFile "%%~ff"
+    )
 )
+
 if "%FLAG_QUIET%"=="0" echo [DONE] Content replacement complete.
 call :dbg "Exit :ReplaceFiles"
 goto :eof
@@ -261,7 +253,7 @@ if "%ext%"=="" (
 ) else (
     for %%x in (%ext%) do (
         call :dbg "Search ext loop: %%x"
-        for /r "%dir%" %%f in (*%%x) do call :SearchInFile "%%~ff"
+        for /r "%dir%" %%f in ("*%%x") do call :SearchInFile "%%~ff"
     )
 )
 
@@ -330,7 +322,7 @@ if "%ext%"=="" (
     )
 ) else (
     for %%x in (%ext%) do (
-        for /r "%dir%" %%f in (*%%x) do (
+        for /r "%dir%" %%f in ("*%%x") do (
             set "name=%%~nxf"
             setlocal enabledelayedexpansion
             set "match=!name!"
@@ -364,10 +356,9 @@ for /r "%dir%" %%f in (*.bak) do (
     set "bak=%%~ff"
     set "orig=%%~dpnxf"
     setlocal enabledelayedexpansion
-    :: remove trailing .bak safely
     set "orig=!orig:~0,-4!"
     if "%FLAG_DRYRUN%"=="1" (
-        endlocal & echo [DRYRUN] MOVE "!bak!" "!orig!" & set /a restored+=1
+        endlocal & echo [DRYRUN] MOVE "%%~ff" "!orig!" & set /a restored+=1
     ) else (
         endlocal & move /y "%%~ff" "!orig!" >nul
         if errorlevel 1 (
@@ -417,7 +408,7 @@ if "%ext%"=="" (
     )
 ) else (
     for %%x in (%ext%) do (
-        for /r "%dir%" %%f in (*%%x) do (
+        for /r "%dir%" %%f in ("*%%x") do (
             set "name=%%~nxf"
             setlocal enabledelayedexpansion
             set "match=!name!"
@@ -466,7 +457,7 @@ goto :eof
 :: ==============================================================================
 :show_help
 echo.
-echo freps  v1.3.0  ^(MIT^)  ^|  %DATE%
+echo freps  v1.3.3  ^(MIT^)  ^|  %DATE%
 echo --------------------------------------
 echo Usage:
 echo   freps MODE FROM TO DIR [EXT...] [/N] [/V] [/B] [/Q] [/M] [/CS] [/RX] [/F] [/DBG]
@@ -480,7 +471,7 @@ echo   u  Undo: restore .bak files to original
 echo   d  Delete files by NAME (requires /F to apply)
 echo.
 echo ARGS:
-echo   FROM  text to find   (ignored in s only for TO, and in u)
+echo   FROM  text to find   (ignored only in u)
 echo   TO    replacement    (ignored in s, l, u, d)
 echo   DIR   base directory (searched recursively)
 echo   EXT   optional extensions like .txt .cfg .idf
