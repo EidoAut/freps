@@ -23,10 +23,27 @@ setlocal EnableExtensions EnableDelayedExpansion
 ::   Legacy ordered arguments:
 ::     MODE FROM TO DIR [EXT...]
 ::
-::   Common flags: /N /V /Q /DBG
-::   Replace: /B
-::   Search : /M /CS /RX
-::   Delete : /F
+::   Common flags:
+::     /N    Dry-run (show actions, make no changes)                  [r,p,u]
+::     /V    Verbose/debug output
+::     /Q    Quiet (suppress info lines)
+::     /DBG  Detailed internal debug trace
+::
+::   Replace-specific:
+::     /B    Create .bak before writing (p)
+::
+::   Search-specific:
+::     /M    Filenames only (no matching lines)
+::     /CS   Case-sensitive search (default is case-insensitive)
+::     /RX   Treat FROM as regex (default: literal via /c:"...")
+::
+::   Delete-specific:
+::     /F    Force deletion (required to actually delete files)       [d]
+::
+:: Notes:
+::   * In search mode, TO is ignored.
+::   * EXT should include the dot, e.g. .txt .cfg .idf
+::   * Replacement in mode p is case-sensitive (cmd variable substitution).
 :: ==============================================================================
 
 :: --- HELP ---
@@ -53,7 +70,7 @@ set "FLAG_SEARCH_FILES_ONLY=0"   :: /M
 set "FLAG_SEARCH_CASE_SENS=0"    :: /CS
 set "FLAG_SEARCH_REGEX=0"        :: /RX
 set "FLAG_DEBUG=0"               :: /DBG
-set "FLAG_FORCE=0"               :: /F
+set "FLAG_FORCE=0"               :: /F  (delete)
 
 :readTail
 if "%~1"=="" goto afterTail
@@ -154,24 +171,24 @@ call :dbg "Exit :RenameFiles"
 goto :eof
 
 :: ==============================================================================
-:: MODE P: REPLACE TEXT INSIDE FILES  (no-paren validation)
+:: MODE P: REPLACE TEXT INSIDE FILES  (minimal fix for dot + /DBG)
 :: ==============================================================================
 :ReplaceFiles
 call :dbg "Enter :ReplaceFiles"
 
-:: avoid parentheses here to be safe with /DBG echo-on
-if defined ext goto :ReplaceFiles_go
+:: minimal, parens-free validation to avoid '.txt' parser issue with /DBG
+if defined ext goto :RF_go
 call :err "Missing file extensions for replace (e.g. .txt .cfg)"
 goto :eof
 
-:ReplaceFiles_go
+:RF_go
 if "%FLAG_QUIET%"=="0" (
     echo [INFO] Replacing "%from%" ^> "%to%" in "%dir%" for: %ext%
     if "%FLAG_DRYRUN%"=="1" echo [INFO] DRY-RUN: no changes will be made.
     if "%FLAG_BACKUP%"=="1" echo [INFO] Backups enabled (.bak).
 )
 
-:: Robust loop over extensions; quote pattern as "*%%x"
+:: robust loop over extensions; quote pattern as "*%%x"
 for %%x in (%ext%) do (
     call :dbg "Extension loop: %%x"
     for /r "%dir%" %%f in ("*%%x") do (
