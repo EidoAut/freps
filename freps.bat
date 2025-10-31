@@ -176,17 +176,19 @@ goto :eof
 :ReplaceFiles
 call :dbg "Enter :ReplaceFiles"
 
-:: minimal, parens-free validation to avoid '.txt' parser issue with /DBG
-if defined ext goto :RF_go
+:: --- VALIDATION sin paréntesis (/DBG-safe) ---
+if defined ext goto :RF_Info
 call :err "Missing file extensions for replace (e.g. .txt .cfg)"
 goto :eof
 
-:RF_go
-if "%FLAG_QUIET%"=="0" (
-    echo [INFO] Replacing "%from%" ^> "%to%" in "%dir%" for: %ext%
-    if "%FLAG_DRYRUN%"=="1" echo [INFO] DRY-RUN: no changes will be made.
-    if "%FLAG_BACKUP%"=="1" echo [INFO] Backups enabled (.bak).
-)
+:RF_Info
+:: --- Mensajes sin bloques () para evitar parser issues ---
+if "%FLAG_QUIET%"=="1" goto :RF_Loop
+echo [INFO] Replacing "%from%" ^> "%to%" in "%dir%" for: %ext%
+if "%FLAG_DRYRUN%"=="1" echo [INFO] DRY-RUN: no changes will be made.
+if "%FLAG_BACKUP%"=="1" echo [INFO] Backups enabled (.bak).
+
+:RF_Loop
 
 :: robust loop over extensions; quote pattern as "*%%x"
 for %%x in (%ext%) do (
