@@ -96,7 +96,6 @@ set "FLAG_REPLACE_CI=0"          :: /CI (PowerShell case-insensitive replace)
 :readTail
 if "%~1"=="" goto afterTail
 set "tkn=%~1"
-REM Usar %tkn% (no !) porque no hay delayed expansion global
 if "%tkn:~0,1%"=="/" (
     if /i "%tkn%"=="/N"   set "FLAG_DRYRUN=1"
     if /i "%tkn%"=="/V"   set "FLAG_VERBOSE=1"
@@ -577,3 +576,4 @@ echo   freps u "" "" "C:\project" /N
 echo   freps d temp "" "C:\project" .tmp .bak /F
 echo.
 exit /b 0
+
