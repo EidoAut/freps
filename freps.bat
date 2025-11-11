@@ -49,6 +49,23 @@ setlocal EnableExtensions
 ::   * Delayed expansion is NOT enabled globally to avoid mangling lines with '!'.
 :: ==============================================================================
 
+:Logo
+color 0b
+echo      __                  
+echo     / _^|                 
+echo    ^| ^|_  _ __   ___  _ __   ___ 
+echo    ^|  _^|^| '__^| / _ \^| '_ \ / __^|
+echo    ^| ^|  ^| ^|   ^|  __/^| ^|_) ^|\__ \
+echo    ^|_^|  ^|_^|    \___^|^| .__/ ^|___/
+echo                      ^| ^|            
+echo                      ^|_^|            
+echo ------------------------------------------------
+echo     freps  ^|  File Rename, Edit ^& Pattern Search
+echo ------------------------------------------------
+echo              "grep's Windows cousin."
+echo ------------------------------------------------
+echo.
+
 :: --- HELP ---
 if /i "%~1"==""        goto :show_help
 if /i "%~1"=="-h"      goto :show_help
