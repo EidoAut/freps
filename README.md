@@ -21,12 +21,12 @@ A compact Windows batch utility for recursive search, rename, replace, listing, 
 
 **freps** is a small, dependency-free **Windows batch tool** to work recursively with files and folders:
 
-- 🔄 **Rename**: find & replace in file/folder names (`mode: r`)
-- 📝 **Replace**: find & replace inside file contents (`mode: p`)
-- 🔍 **Search**: find text across files (lines or filenames only) (`mode: s`)
-- 📄 **List**: show files whose **name** contains a string (`mode: l`)
-- ↩️ **Undo**: restore `.bak` backups created during replace (`mode: u`)
-- 🗑️ **Delete**: remove files by **name** (safe by default; requires `/F`) (`mode: d`)
+- **Rename**: find & replace in file/folder names (`mode: r`)
+- **Replace**: find & replace inside file contents (`mode: p`)
+- **Search**: find text across files (lines or filenames only) (`mode: s`)
+- **List**: show files whose **name** contains a string (`mode: l`)
+- ↩ **Undo**: restore `.bak` backups created during replace (`mode: u`)
+- 🗑 **Delete**: remove files by **name** (safe by default; requires `/F`) (`mode: d`)
 
 MIT licensed. Single `bat` file. No external tools.
 
@@ -122,7 +122,7 @@ freps d temp "" "C:\work\repo" .tmp .bak /F
 ## Notes & Limitations
 
 - **Replace (`p`) is case-sensitive** due to `cmd.exe` variable substitution.  
-  For true case-insensitive or regex replace, consider a PowerShell variant.
+ For true case-insensitive or regex replace, consider a PowerShell variant.
 - Operates **line-by-line**; intended for **text** files.
 - **Rename** processes files first, then folders deepest-first.
 - **Delete (`d`)** requires `/F` to actually remove files. If both `/N` and `/F` are present, dry-run wins.
