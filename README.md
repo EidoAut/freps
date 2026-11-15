@@ -7,7 +7,7 @@
 
 A compact Windows batch utility for recursive search, rename, replace, listing, undo and guarded deletion.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-5bbc85.svg)](LICENSE) ![Technology](https://img.shields.io/badge/Batch%20%C2%B7%20Windows-243b34?style=flat)
+[![License: MIT](https://img.shields.io/badge/License-MIT-5bbc85.svg)](LICENSE)
 
 **Maintained by [EIDO Automation](https://github.com/EidoAut).** See the [MIT license](LICENSE) for reuse conditions. The capabilities and limitations described below are those of this repository, not a guarantee of production suitability.
 
