@@ -1,7 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="180" viewBox="0 0 1100 180" role="img" aria-label="freps — EIDO Automation">
-  <rect width="1100" height="180" fill="#101816"/>
-  <g fill="none" stroke="#71ad89" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="66" cy="78" r="22"/><path d="M82 94l20 20"/></g>
-  <text x="148" y="65" fill="#dce6e0" font-family="Arial,Helvetica,sans-serif" font-size="24" font-weight="600" letter-spacing="3">EIDO</text>
-  <line x1="148" y1="84" x2="1052" y2="84" stroke="#416752" stroke-width="1"/>
-  <text x="148" y="138" fill="#ffffff" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="500">freps</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="220" viewBox="0 0 1100 220" role="img" aria-label="freps — EIDO Automation">
+  <rect width="1100" height="220" fill="#101816"/>
+  <!-- Find and replace: a search lens containing two minimal opposing arrows. -->
+  <g fill="none" stroke="#8cca9c" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="117" cy="94" r="48"/>
+    <path d="M151 130L185 164"/>
+    <path d="M89 84H140M130 74L140 84L130 94"/>
+    <path d="M140 105H89M99 95L89 105L99 115"/>
+  </g>
+  <line x1="224" y1="47" x2="224" y2="175" stroke="#365c48" stroke-width="2"/>
+  <text x="262" y="86" fill="#c7d7cd" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="600" letter-spacing="4">EIDO AUTOMATION</text>
+  <text x="258" y="154" fill="#f3f6f3" font-family="Arial,Helvetica,sans-serif" font-size="65" font-weight="600">freps</text>
+  <text x="262" y="188" fill="#8da599" font-family="Arial,Helvetica,sans-serif" font-size="17" letter-spacing="2">FIND · REPLACE · SEARCH</text>
 </svg>
