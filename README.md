@@ -25,8 +25,8 @@
 - **Replace**: find & replace inside file contents (`mode: p`)
 - **Search**: find text across files (lines or filenames only) (`mode: s`)
 - **List**: show files whose **name** contains a string (`mode: l`)
-- ↩ **Undo**: restore `.bak` backups created during replace (`mode: u`)
-- 🗑 **Delete**: remove files by **name** (safe by default; requires `/F`) (`mode: d`)
+- **Undo**: restore `.bak` backups created during replace (`mode: u`)
+- **Delete**: remove files by **name** (safe by default; requires `/F`) (`mode: d`)
 
 MIT licensed. Single `bat` file. No external tools.
 
