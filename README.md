@@ -5,7 +5,7 @@
 
 **Recursive search, replace and file operations for Windows**
 
-A compact Windows batch utility for recursive search, rename, replace, listing, undo and guarded deletion.
+<p align="justify">A compact Windows batch utility for recursive search, rename, replace, listing, undo and guarded deletion.</p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-5bbc85.svg)](LICENSE)
 
